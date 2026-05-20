@@ -409,6 +409,25 @@ if(form.style.display === "block"){
 
 }
 
+/*
+RECARGA AUTOMÁTICA CADA 5 SEGUNDOS
+*/
+
+setInterval(function(){
+
+    location.reload();
+
+}, 5000);
+
+</script>
+<script>
+
+setInterval(function(){
+
+    location.reload();
+
+},5000);
+
 </script>
 
 </body>

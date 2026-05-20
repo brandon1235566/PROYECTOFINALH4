@@ -1,356 +1,494 @@
+<?php
+
+include("../modelo/conexion.php");
+
+/*
+========================================
+CONSULTA SENSORES
+========================================
+*/
+
+$consulta = mysqli_query(
+    $conexion,
+    "SELECT * FROM sensores ORDER BY id DESC LIMIT 10"
+);
+
+$labels = [];
+$temperatura = [];
+$humedad = [];
+$luminosidad = [];
+
+while($fila = mysqli_fetch_assoc($consulta)){
+
+    $labels[] = $fila['nombre'];
+
+    $tipo = strtolower($fila['tipo']);
+
+    /*
+    TEMPERATURA
+    */
+
+    if($tipo == "temperatura"){
+
+        $temperatura[] = $fila['valor'];
+        $humedad[] = null;
+        $luminosidad[] = null;
+
+    }
+
+    /*
+    HUMEDAD
+    */
+
+    elseif($tipo == "humedad"){
+
+        $temperatura[] = null;
+        $humedad[] = $fila['valor'];
+        $luminosidad[] = null;
+
+    }
+
+    /*
+    LUMINOSIDAD
+    */
+
+    else{
+
+        $temperatura[] = null;
+        $humedad[] = null;
+        $luminosidad[] = $fila['valor'];
+
+    }
+
+}
+
+/*
+========================================
+ORDENAR DATOS
+========================================
+*/
+
+$labels = array_reverse($labels);
+
+$temperatura = array_reverse($temperatura);
+
+$humedad = array_reverse($humedad);
+
+$luminosidad = array_reverse($luminosidad);
+
+/*
+========================================
+ALERTAS
+========================================
+*/
+
+$alertas = [];
+
+$consultaAlertas = mysqli_query(
+    $conexion,
+    "SELECT * FROM sensores ORDER BY id DESC LIMIT 10"
+);
+
+while($dato = mysqli_fetch_assoc($consultaAlertas)){
+
+    $tipo = strtolower($dato['tipo']);
+
+    $valor = $dato['valor'];
+
+    /*
+    ALERTA TEMPERATURA
+    */
+
+    if($tipo == "temperatura" && $valor > 35){
+
+        $alertas[] =
+        "🚨 Temperatura muy alta en "
+        . $dato['ubicacion']
+        . " (" . $valor . "°C)";
+
+    }
+
+    /*
+    ALERTA HUMEDAD
+    */
+
+    if($tipo == "humedad" && $valor < 20){
+
+        $alertas[] =
+        "⚠️ Humedad muy baja en "
+        . $dato['ubicacion']
+        . " (" . $valor . "%)";
+
+    }
+
+}
+
+?>
+
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
+
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AgroVision - Dashboard</title>
+
+<meta
+name="viewport"
+content="width=device-width, initial-scale=1.0"
+>
+
+<title>AgroVisión - Dashboard</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Space+Mono:wght@400;700&family=Nunito:wght@300;400;600;700&display=swap" rel="stylesheet">
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Space+Mono:wght@400;700&family=Nunito:wght@300;400;600;700&display=swap" rel="stylesheet">
 
 <style>
+
 :root{
---verde:#2d6a4f;
---verde-claro:#52b788;
---verde-lima:#95d5b2;
---rojo:#e63946;
---amarillo:#f4a261;
---blanco:#fff;
---sidebar:220px;
+  --verde:#2d6a4f;
+  --verde-claro:#52b788;
+  --verde-lima:#95d5b2;
+  --crema:#f5f0e8;
+  --cafe:#3d2b1f;
+  --blanco:#fff;
+  --sombra:rgba(45,106,79,0.12);
+  --sidebar:220px;
 }
 
 *{
-margin:0;
-padding:0;
-box-sizing:border-box;
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
 }
 
 body{
-font-family:'Nunito',sans-serif;
-background:#f0f4f1;
-display:flex;
-min-height:100vh;
+  font-family:'Nunito',sans-serif;
+  background:#f0f4f1;
+  color:var(--cafe);
+  display:flex;
+  min-height:100vh;
 }
 
 /* SIDEBAR */
+
 .sidebar{
-width:var(--sidebar);
-background:var(--verde);
-padding:1.5rem;
-position:fixed;
-height:100%;
+  width:var(--sidebar);
+  background:var(--verde);
+  min-height:100vh;
+  padding:1.5rem 1rem;
+  display:flex;
+  flex-direction:column;
+  position:fixed;
+  top:0;
+  left:0;
 }
 
 .sidebar-logo{
-color:white;
-font-size:1.5rem;
-font-family:'DM Serif Display';
-margin-bottom:2rem;
+  font-family:'DM Serif Display',serif;
+  font-size:1.3rem;
+  color:var(--blanco);
+  margin-bottom:2.5rem;
+  padding-bottom:1.5rem;
+  border-bottom:1px solid rgba(255,255,255,0.15);
+}
+
+.sidebar-logo em{
+  color:var(--verde-lima);
+  font-style:italic;
 }
 
 .sidebar nav a{
-display:block;
-color:white;
-text-decoration:none;
-padding:.8rem;
-margin-bottom:.4rem;
-border-radius:8px;
+  display:flex;
+  align-items:center;
+  gap:0.7rem;
+  color:rgba(255,255,255,0.7);
+  text-decoration:none;
+  padding:0.65rem 0.8rem;
+  border-radius:10px;
+  font-size:0.9rem;
+  font-weight:600;
+  margin-bottom:0.3rem;
+  transition:all 0.2s;
 }
 
 .sidebar nav a:hover,
 .sidebar nav a.active{
-background:rgba(255,255,255,.15);
+  background:rgba(255,255,255,0.15);
+  color:var(--blanco);
+}
+
+.sidebar nav a.active{
+  border-left:3px solid var(--verde-lima);
+}
+
+.sidebar-footer{
+  margin-top:auto;
+  padding-top:1rem;
+  border-top:1px solid rgba(255,255,255,0.15);
+}
+
+.sidebar-footer a{
+  color:rgba(255,255,255,0.6);
+  text-decoration:none;
+  font-size:0.85rem;
 }
 
 /* MAIN */
+
 .main{
-margin-left:var(--sidebar);
-flex:1;
-padding:2rem;
+  margin-left:var(--sidebar);
+  flex:1;
+  padding:2rem;
 }
 
 .topbar{
-display:flex;
-justify-content:space-between;
-align-items:center;
-margin-bottom:2rem;
+  margin-bottom:2rem;
 }
 
 .topbar h1{
-font-family:'DM Serif Display';
-font-size:2rem;
+  font-family:'DM Serif Display',serif;
+  font-size:2rem;
 }
 
-.time-badge{
-background:white;
-padding:.5rem 1rem;
-border-radius:20px;
+.topbar p{
+  color:#8a7a70;
+  margin-top:0.4rem;
 }
 
-/* cards */
-.metrics{
-display:grid;
-grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
-gap:1rem;
-margin-bottom:2rem;
+/* CARDS */
+
+.cards{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:1rem;
+  margin-bottom:2rem;
 }
 
-.metric{
-background:white;
-padding:1.5rem;
-border-radius:14px;
-box-shadow:0 2px 10px rgba(0,0,0,.08);
+.card{
+  background:var(--blanco);
+  padding:1.5rem;
+  border-radius:14px;
+  box-shadow:0 2px 12px var(--sombra);
 }
 
-.metric-label{
-font-size:.8rem;
-color:gray;
-margin-bottom:.5rem;
+.card h3{
+  font-size:1rem;
+  margin-bottom:0.5rem;
 }
 
-.metric-value{
-font-size:2rem;
-font-weight:bold;
+.card .numero{
+  font-size:2rem;
+  font-weight:bold;
+  color:var(--verde);
 }
 
-.ok{
-background:#d8f3dc;
-padding:.2rem .6rem;
-border-radius:8px;
-font-size:.75rem;
-display:inline-block;
-margin-top:.5rem;
+/* ALERTAS */
+
+.alertas{
+  background:#ffe5e5;
+  padding:1rem;
+  border-radius:12px;
+  margin-bottom:1.5rem;
+  border-left:6px solid red;
 }
 
-.warn{
-background:#fff3cd;
-padding:.2rem .6rem;
-border-radius:8px;
-font-size:.75rem;
-display:inline-block;
-margin-top:.5rem;
+/* GRAFICA */
+
+.chart-container{
+  background:var(--blanco);
+  padding:2rem;
+  border-radius:14px;
+  box-shadow:0 2px 12px var(--sombra);
 }
 
-/* charts */
-.charts-row{
-display:grid;
-grid-template-columns:2fr 1fr;
-gap:1rem;
-margin-bottom:2rem;
-}
-
-.chart-card{
-background:white;
-padding:1.5rem;
-border-radius:14px;
-box-shadow:0 2px 10px rgba(0,0,0,.08);
-}
-
-.chart-card h3{
-margin-bottom:1rem;
-font-family:'DM Serif Display';
-}
-
-/* scan */
-.scan-box{
-background:white;
-padding:1.5rem;
-border-radius:14px;
-margin-bottom:2rem;
-text-align:center;
-box-shadow:0 2px 10px rgba(0,0,0,.08);
-}
-
-.scan-box img{
-width:250px;
-border-radius:10px;
-margin-bottom:1rem;
-}
-
-/* button */
-.btn{
-background:var(--verde);
-color:white;
-padding:.8rem 1.5rem;
-border:none;
-border-radius:10px;
-cursor:pointer;
-font-weight:bold;
-}
-
-/* alerts */
-.alerts-section{
-background:white;
-padding:1.5rem;
-border-radius:14px;
-box-shadow:0 2px 10px rgba(0,0,0,.08);
-}
-
-.alert-item{
-padding:1rem;
-margin-bottom:.7rem;
-border-left:5px solid var(--rojo);
-background:#fff0f0;
-border-radius:8px;
-}
 </style>
+
 </head>
 
 <body>
 
 <aside class="sidebar">
-<div class="sidebar-logo">AgroVision</div>
+
+<div class="sidebar-logo">
+Agro<em>Visión</em>
+</div>
 
 <nav>
-<a href="index.html">🏠 Inicio</a>
-<a href="dashboard.html" class="active">📊 Dashboard</a>
-<a href="sensores.html">📡 Sensores</a>
-<a href="cultivos.html">🍅 Tomates</a>
-<a href="reportes.html">📋 Reportes</a>
+
+<a href="index.php">🏠 Inicio</a>
+
+<a href="dashboard.php" class="active">
+📊 Dashboard
+</a>
+
+<a href="sensores.php">
+📡 Sensores
+</a>
+
+<a href="cultivos.php">
+🌿 Cultivos
+</a>
+
+<a href="reportes.php">
+📋 Reportes
+</a>
+
 </nav>
+
+<div class="sidebar-footer">
+<a href="index.php">← Inicio</a>
+</div>
+
 </aside>
 
 <main class="main">
 
 <div class="topbar">
-<div>
-<h1>Panel de Control del Tomate</h1>
-<p>Cultivo activo: <strong>Tomate — Invernadero 1</strong></p>
-</div>
-<div class="time-badge" id="reloj"></div>
-</div>
 
-<!-- métricas -->
-<div class="metrics">
+<h1>
+📊 Dashboard Inteligente AgroVisión
+</h1>
 
-<div class="metric">
-<div class="metric-label">Temperatura</div>
-<div class="metric-value">24°C</div>
-<span class="ok">Óptimo</span>
-</div>
-
-<div class="metric">
-<div class="metric-label">Humedad Suelo</div>
-<div class="metric-value">72%</div>
-<span class="ok">Óptimo</span>
-</div>
-
-<div class="metric">
-<div class="metric-label">Humedad Aire</div>
-<div class="metric-value">78%</div>
-<span class="warn">Alta</span>
-</div>
-
-<div class="metric">
-<div class="metric-label">pH Suelo</div>
-<div class="metric-value">6.5</div>
-<span class="ok">Óptimo</span>
-</div>
-
-<div class="metric">
-<div class="metric-label">Salud del cultivo</div>
-<div class="metric-value">92%</div>
-<span class="ok">Saludable</span>
-</div>
+<p>
+Monitoreo agrícola en tiempo real con ESP32 + MYSQL
+</p>
 
 </div>
 
-<!-- graficas -->
-<div class="charts-row">
+<!-- CARDS -->
 
-<div class="chart-card">
-<h3>Historial ambiental</h3>
-<canvas id="chartLineal"></canvas>
+<div class="cards">
+
+<div class="card">
+<h3>Total Registros</h3>
+<div class="numero">
+<?php echo count($labels); ?>
+</div>
 </div>
 
-<div class="chart-card">
-<h3>Estado del tomate</h3>
-<canvas id="chartDona"></canvas>
+<div class="card">
+<h3>Sistema</h3>
+<div class="numero">
+ONLINE
+</div>
+</div>
+
+<div class="card">
+<h3>Base de Datos</h3>
+<div class="numero">
+MYSQL
+</div>
+</div>
+
+<div class="card">
+<h3>IoT</h3>
+<div class="numero">
+ESP32
+</div>
 </div>
 
 </div>
 
-<!-- escaneo -->
-<div class="scan-box">
-<h3>Último Escaneo de Hoja</h3>
+<!-- ALERTAS -->
 
-<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Tomato_leaf.jpg/320px-Tomato_leaf.jpg">
+<?php if(count($alertas) > 0){ ?>
 
-<p><strong>Resultado IA:</strong> Hoja saludable 🍃</p>
+<div class="alertas">
 
-<br>
+<h3 style="margin-bottom:0.7rem;">
+🚨 Alertas Inteligentes
+</h3>
 
-<button class="btn"
-onclick="window.location.href='subir_imagen.php'">
-Escanear Hoja de Tomate
-</button>
+<?php foreach($alertas as $alerta){ ?>
+
+<p style="margin-bottom:0.5rem;">
+<?php echo $alerta; ?>
+</p>
+
+<?php } ?>
 
 </div>
 
-<!-- alertas -->
-<div class="alerts-section">
+<?php } ?>
 
-<h3>Alertas recientes</h3>
+<!-- GRAFICA -->
 
-<div class="alert-item">
-🚨 Riesgo de tizón temprano detectado
-</div>
+<div class="chart-container">
 
-<div class="alert-item">
-⚠ Humedad alta favorece aparición de mildiu
-</div>
-
-<div class="alert-item">
-ℹ Última lectura correcta: hace 5 minutos
-</div>
+<canvas id="grafica"></canvas>
 
 </div>
 
 </main>
 
 <script>
-function reloj(){
-document.getElementById("reloj").innerHTML=
-new Date().toLocaleTimeString("es-BO");
-}
-setInterval(reloj,1000);
-reloj();
 
-const ctx=document.getElementById('chartLineal');
+const ctx = document.getElementById('grafica');
 
-new Chart(ctx,{
-type:'line',
-data:{
-labels:['8','9','10','11','12','13'],
-datasets:[
-{
-label:'Temperatura',
-data:[22,23,24,25,24,24],
-borderColor:'#e76f51'
-},
-{
-label:'Humedad',
-data:[70,72,74,73,72,72],
-borderColor:'#457b9d'
-}
-]
-}
+new Chart(ctx, {
+
+    type: 'line',
+
+    data: {
+
+        labels: <?php echo json_encode($labels); ?>,
+
+        datasets: [
+
+        {
+            label: '🌡️ Temperatura',
+            data: <?php echo json_encode($temperatura); ?>,
+            borderWidth: 3,
+            tension: 0.3
+        },
+
+        {
+            label: '💧 Humedad',
+            data: <?php echo json_encode($humedad); ?>,
+            borderWidth: 3,
+            tension: 0.3
+        },
+
+        {
+            label: '☀️ Luminosidad',
+            data: <?php echo json_encode($luminosidad); ?>,
+            borderWidth: 3,
+            tension: 0.3
+        }
+
+        ]
+
+    },
+
+    options: {
+
+        responsive:true,
+
+        scales:{
+            y:{
+                beginAtZero:true
+            }
+        }
+
+    }
+
 });
 
-const ctx2=document.getElementById('chartDona');
+/*
+========================================
+AUTO RECARGA
+========================================
+*/
 
-new Chart(ctx2,{
-type:'doughnut',
-data:{
-labels:['Saludable','Alerta'],
-datasets:[{
-data:[92,8],
-backgroundColor:['#52b788','#e63946']
-}]
-}
-});
+setInterval(function(){
+
+    location.reload();
+
+}, 5000);
+
 </script>
 
 </body>
