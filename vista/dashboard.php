@@ -81,7 +81,67 @@ $luminosidad = array_reverse($luminosidad);
 ALERTAS
 ========================================
 */
+/*
+========================================
+ESTADISTICAS TEMPERATURA
+========================================
+*/
 
+$tempValores = [];
+
+$consultaTemp = mysqli_query(
+    $conexion,
+    "SELECT * FROM sensores
+     WHERE tipo='Temperatura'"
+);
+
+while($temp = mysqli_fetch_assoc($consultaTemp)){
+
+    $tempValores[] = $temp['valor'];
+
+}
+
+/*
+MAXIMA
+*/
+
+$tempMaxima = 0;
+
+if(count($tempValores) > 0){
+
+    $tempMaxima = max($tempValores);
+
+}
+
+/*
+MINIMA
+*/
+
+$tempMinima = 0;
+
+if(count($tempValores) > 0){
+
+    $tempMinima = min($tempValores);
+
+}
+
+/*
+PROMEDIO
+*/
+
+$tempPromedio = 0;
+
+if(count($tempValores) > 0){
+
+    $tempPromedio =
+    round(
+        array_sum($tempValores)
+        /
+        count($tempValores),
+        1
+    );
+
+}
 $alertas = [];
 
 $consultaAlertas = mysqli_query(
@@ -370,23 +430,30 @@ Monitoreo agrícola en tiempo real con ESP32 + MYSQL
 </div>
 
 <div class="card">
-<h3>Sistema</h3>
+<h3>🌡️ Temp Máxima</h3>
 <div class="numero">
-ONLINE
+<?php echo $tempMaxima; ?>°
 </div>
 </div>
 
 <div class="card">
-<h3>Base de Datos</h3>
+<h3>❄️ Temp Mínima</h3>
 <div class="numero">
-MYSQL
+<?php echo $tempMinima; ?>°
 </div>
 </div>
 
 <div class="card">
-<h3>IoT</h3>
+<h3>📈 Promedio</h3>
 <div class="numero">
-ESP32
+<?php echo $tempPromedio; ?>°
+</div>
+</div>
+
+<div class="card">
+<h3>🚨 Alertas</h3>
+<div class="numero">
+<?php echo count($alertas); ?>
 </div>
 </div>
 
@@ -426,9 +493,15 @@ ESP32
 
 <script>
 
+/*
+========================================
+CREAR GRAFICA
+========================================
+*/
+
 const ctx = document.getElementById('grafica');
 
-new Chart(ctx, {
+const grafica = new Chart(ctx, {
 
     type: 'line',
 
@@ -479,15 +552,65 @@ new Chart(ctx, {
 
 /*
 ========================================
-AUTO RECARGA
+ACTUALIZAR DASHBOARD
 ========================================
 */
 
-setInterval(function(){
+async function actualizarDashboard(){
 
-    location.reload();
+    try{
 
-}, 5000);
+        const respuesta = await fetch(
+            "../controlador/obtener_datos.php"
+        );
+
+        const datos = await respuesta.json();
+
+        /*
+        ACTUALIZAR LABELS
+        */
+
+        grafica.data.labels = datos.labels;
+
+        /*
+        ACTUALIZAR DATOS
+        */
+
+        grafica.data.datasets[0].data =
+        datos.temperatura;
+
+        grafica.data.datasets[1].data =
+        datos.humedad;
+
+        grafica.data.datasets[2].data =
+        datos.luminosidad;
+
+        /*
+        REFRESCAR GRAFICA
+        */
+
+        grafica.update();
+
+    }
+
+    catch(error){
+
+        console.log(
+            "Error actualizando dashboard:",
+            error
+        );
+
+    }
+
+}
+
+/*
+========================================
+ACTUALIZAR CADA 5 SEGUNDOS
+========================================
+*/
+
+setInterval(actualizarDashboard, 5000);
 
 </script>
 
